@@ -2733,6 +2733,7 @@ B *bload(const char *s)
 		return b;
 	}
 
+
 	n = parsens(s, &skip, &amnt);
 
 	/* Open file or stream */
@@ -2780,6 +2781,7 @@ B *bload(const char *s)
 		else
 			berror = -4;
 		b = bmk(NULL);
+		b->name = joesep(zdup(s));
 		setopt(b,n);
 		b->rdonly = b->o.readonly;
 		goto opnerr;
@@ -2808,6 +2810,7 @@ B *bload(const char *s)
 	b = bread(fileno(fi), amnt);
 	empty:
 	b->mod_time = mod_time;
+	b->name = joesep(zdup(s));
 	setopt(b,n);
 	b->rdonly = b->o.readonly;
 
@@ -2826,9 +2829,6 @@ opnerr:
 		ttopnn();
 		nreturn(maint->t);
 	}
-
-	/* Set name */
-	b->name = joesep(zdup(s));
 
 	/* Set flags */
 	if (berror || s[0] == '!' || skip || amnt != MAXOFF) {
@@ -3010,11 +3010,11 @@ B *bfind_scratch(const char *s)
 		}
 	b = bmk(NULL);
 	berror = -1;
+	b->name = zdup(s);
 	setopt(b,s);
 	b->internal = 0;
 	b->rdonly = b->o.readonly;
 	b->er = berror;
-	b->name = zdup(s);
 	b->scratch = 1;
 	return b;
 }
