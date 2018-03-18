@@ -8,6 +8,10 @@
 
 #include "types.h"
 
+#if HAVE_EDITORCONFIG
+#include <editorconfig/editorconfig.h>
+#endif
+
 #define HEX_RESTORE_UTF8	2
 #define HEX_RESTORE_CRLF	4
 #define HEX_RESTORE_INSERT	8
@@ -238,6 +242,69 @@ void lazy_opts(B *b, OPTIONS *o)
 	
 }
 
+#ifdef HAVE_EDITORCONFIG
+static void setopt_editorconfig(B *b)
+{
+	editorconfig_handle ech;
+	int ecerr;
+	int n, count;
+	char *fullpath;
+	struct charmap *newmap;
+
+	/* do not use editorconfig if we don't have a filename */
+	if (!b->name || !zcmp(b->name, "* Startup Log *"))
+		return;
+
+	/* get canonical pathname; editorconfig requires the absolute path */
+	fullpath = realpath(b->name, NULL);
+
+	ech = editorconfig_handle_init();
+
+	ecerr = editorconfig_parse(fullpath, ech);
+	if (ecerr < 0) {
+		const char *msg = editorconfig_get_error_msg(ecerr);
+		logerror_2("error %d from editorconfig: %s\n", ecerr, msg);
+		goto done;
+	} else if (ecerr > 0) {
+		const char *file = editorconfig_handle_get_conf_file_name(ech);
+		int line = ecerr;
+		logerror_2("%s %d: parse error\n", file, line);
+		goto done;
+	}
+
+	count = editorconfig_handle_get_name_value_count(ech);
+	for (n = 0; n < count; ++n) {
+		const char *name, *value;
+		editorconfig_handle_get_name_value(ech, n, &name, &value);
+
+		if (!zcmp(name, "indent_style")) {
+			if (!zcmp(value, "tab")) {
+				b->o.indentc = '\t';
+				b->o.spaces = 0;
+			} else if (!zcmp(value, "space")) {
+				b->o.indentc = ' ';
+				b->o.spaces = 1;
+			}
+		} else if (!zcmp(name, "indent_size")) {
+			if (zcmp(value, "tab")) {
+				/* if not "tab", then integer */
+				b->o.istep = ztoi(value);
+			}
+		} else if (!zcmp(name, "tab_width")) {
+			b->o.tab = ztoi(value);
+		}
+	}
+
+	done:
+	editorconfig_handle_destroy(ech);
+	free(fullpath);
+}
+#else
+static void setopt_editorconfig(B *)
+{
+}
+#endif
+
 /* Set local options depending on file name and contents */
 
 void setopt(B *b, const char *parsed_name)
@@ -269,7 +336,9 @@ void setopt(B *b, const char *parsed_name)
 
 	lazy_opts(b, &fdefault);
 
-	done:;
+	done:
+	/* options from editorconfig override *rc and defaults */
+	setopt_editorconfig(b);
 }
 
 /* Table of options and how to set them */
