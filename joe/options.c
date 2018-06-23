@@ -255,12 +255,21 @@ static void setopt_editorconfig(B *b)
 	if (!b->name || !zcmp(b->name, "* Startup Log *"))
 		return;
 
-	/* get canonical pathname; editorconfig requires the absolute path */
-	fullpath = realpath(b->name, NULL);
-
 	ech = editorconfig_handle_init();
 
-	ecerr = editorconfig_parse(fullpath, ech);
+	/* editorconfig requires an absolute path */
+	if (b->name[0] == '/') {
+		ecerr = editorconfig_parse(b->name, ech);
+	} else {
+		n = strlen(pwd()) + strlen(b->name) + 1;
+		fullpath = joe_malloc(n);
+		if (!fullpath)
+			return;
+		joe_snprintf_2(fullpath, n, "%s/%s", pwd(), b->name);
+		ecerr = editorconfig_parse(fullpath, ech);
+		joe_free(fullpath);
+	}
+
 	if (ecerr < 0) {
 		const char *msg = editorconfig_get_error_msg(ecerr);
 		logerror_2("error %d from editorconfig: %s\n", ecerr, msg);
@@ -297,7 +306,6 @@ static void setopt_editorconfig(B *b)
 
 	done:
 	editorconfig_handle_destroy(ech);
-	free(fullpath);
 }
 #else
 static void setopt_editorconfig(B *)
