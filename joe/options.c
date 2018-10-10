@@ -261,7 +261,7 @@ static void setopt_editorconfig(B *b)
 	if (b->name[0] == '/') {
 		ecerr = editorconfig_parse(b->name, ech);
 	} else {
-		n = strlen(pwd()) + strlen(b->name) + 1;
+		n = strlen(pwd()) + strlen("/") + strlen(b->name) + 1;
 		fullpath = joe_malloc(n);
 		if (!fullpath)
 			return;
